@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gravitational Lens Einstein Ring Canvas</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  canvas { cursor: crosshair; }
+  input[type=range] { accent-color: #a855f7; }
+</style>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col items-center p-4">
+<h1 class="text-2xl font-bold text-purple-400 mb-1">Gravitational Lens Einstein Ring Canvas</h1>
+<p class="text-gray-400 text-sm mb-4">シュワルツシルト偏向でアインシュタインリング形成をリアルタイム描画</p>
+
+<div class="flex flex-col lg:flex-row gap-6 w-full max-w-5xl">
+  <!-- Canvas -->
+  <div class="flex flex-col items-center">
+    <canvas id="glCanvas" width="500" height="500"
+      class="border border-gray-700 rounded"
+      aria-label="重力レンズシミュレーションキャンバス。クリックで光源位置を変更"></canvas>
+    <div class="flex gap-4 mt-2 text-xs text-gray-400 flex-wrap justify-center">
+      <span id="magnDisplay">倍率 μ: --</span>
+      <span id="einsteinRDisplay">θ_E: -- px</span>
+      <span id="imageCountDisplay">像の数: --</span>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="flex flex-col gap-4 min-w-64">
+    <!-- Lens params -->
+    <div class="bg-gray-800 rounded-lg p-4">
+      <h2 class="text-purple-300 font-semibold mb-3">レンズ パラメータ</h2>
+
+      <label class="block text-sm mb-1">
+        アインシュタイン半径 θ_E: <span id="einsteinRVal" class="text-yellow-300">80</span> px
+      </label>
+      <input type="range" id="einsteinR" min="20" max="180" step="2" value="80"
+        class="w-full mb-3" aria-label="アインシュタイン半径">
+
+      <label class="block text-sm mb-1">
+        光源 X オフセット: <span id="srcXVal" class="text-yellow-300">0</span> px
+      </label>
+      <input type="range" id="srcX" min="-150" max="150" step="1" value="0"
+        class="w-full mb-3" aria-label="光源X位置">
+
+      <label class="block text-sm mb-1">
+        光源 Y オフセット: <span id="srcYVal" class="text-yellow-300">0</span> px
+      </label>
+      <input type="range" id="srcY" min="-150" max="150" step="1" value="0"
+        class="w-full mb-3" aria-label="光源Y位置">
+
+      <label class="block text-sm mb-1">光源の形状:</label>
+      <select id="srcShape" class="w-full bg-gray-700 rounded px-2 py-1 text-sm" aria-label="光源の形状">
+        <option value="point">点光源</option>
+        <option value="disk" selected>円盤銀河</option>
+        <option value="galaxy">渦巻き銀河</option>
+      </select>
+    </div>
+
+    <!-- Animation -->
+    <div class="bg-gray-800 rounded-lg p-4">
+      <h2 class="text-purple-300 font-semibold mb-3">アニメーション</h2>
+      <button id="animBtn"
+        class="w-full bg-purple-700 hover:bg-purple-600 text-white py-2 px-4 rounded font-semibold transition-colors mb-2"
+        aria-label="光源を自動移動してアインシュタインリング形成を観察">
+        光源を自動移動
+      </button>
+      <label class="block text-sm mb-1">
+        移動速度: <span id="animSpeedVal" class="text-yellow-300">1.0</span>
+      </label>
+      <input type="range" id="animSpeed" min="0.2" max="3.0" step="0.2" value="1.0"
+        class="w-full" aria-label="アニメーション速度">
+    </div>
+
+    <!-- Display options -->
+    <div class="bg-gray-800 rounded-lg p-4">
+      <h2 class="text-purple-300 font-semibold mb-3">表示オプション</h2>
+      <label class="flex items-center gap-2 cursor-pointer mb-2">
+        <input type="checkbox" id="showEinsteinCircle" checked class="accent-purple-400" aria-label="アインシュタイン円を表示">
+        <span class="text-sm">アインシュタイン円（臨界曲線）</span>
+      </label>
+      <label class="flex items-center gap-2 cursor-pointer mb-2">
+        <input type="checkbox" id="showCaustic" checked class="accent-purple-400" aria-label="コースティック曲線を表示">
+        <span class="text-sm">コースティック曲線</span>
+      </label>
+      <label class="flex items-center gap-2 cursor-pointer">
+        <input type="checkbox" id="showLabels" checked class="accent-purple-400" aria-label="像ラベルを表示">
+        <span class="text-sm">像ラベル (A, B)</span>
+      </label>
+    </div>
+
+    <!-- Info -->
+    <div class="bg-gray-800 rounded-lg p-4 text-sm text-gray-300">
+      <h2 class="text-purple-300 font-semibold mb-2">重力レンズとは</h2>
+      <p class="mb-2 text-gray-400">質量天体の重力で時空間が歪み、背景光源からの光が曲げられる現象。</p>
+      <div class="bg-gray-900 rounded p-2 text-xs font-mono text-green-300 mb-2">
+        θ_E = √(4GM·D_ls / c²·D_l·D_s)
+      </div>
+      <ul class="list-disc list-inside space-y-1 text-gray-400 text-xs">
+        <li>光源が軸上: アインシュタインリング形成</li>
+        <li>光源が外側: 2像(A,B)に分裂</li>
+        <li>コースティック通過時: 像の数が変化</li>
+      </ul>
+      <p class="mt-2 text-purple-400 text-xs">キャンバスクリックで光源を移動</p>
+    </div>
+  </div>
+</div>
+
+<script>
+const W = 500, H = 500;
+const CX = W / 2, CY = H / 2;
+
+const canvas = document.getElementById('glCanvas');
+const ctx = canvas.getContext('2d');
+
+let einsteinR = 80;
+let srcX = 0, srcY = 0;
+let srcShape = 'disk';
+let animating = false;
+let animAngle = 0;
+let animSpeed = 1.0;
+let animRadius = 120;
+let showEinsteinCircle = true;
+let showCaustic = true;
+let showLabels = true;
+
+// Generate background stars
+const stars = [];
+for (let i = 0; i < 300; i++) {
+  stars.push({
+    x: Math.random() * W,
+    y: Math.random() * H,
+    r: Math.random() * 1.2 + 0.3,
+    b: Math.random()
+  });
+}
+
+// Source texture
+const srcCanvas = new OffscreenCanvas(80, 80);
+const srcCtx = srcCanvas.getContext('2d');
+
+function drawSourceTexture(shape) {
+  srcCtx.clearRect(0, 0, 80, 80);
+  if (shape === 'point') {
+    const grad = srcCtx.createRadialGradient(40, 40, 0, 40, 40, 8);
+    grad.addColorStop(0, 'rgba(255,240,180,1)');
+    grad.addColorStop(1, 'rgba(255,240,180,0)');
+    srcCtx.fillStyle = grad;
+    srcCtx.beginPath(); srcCtx.arc(40, 40, 8, 0, Math.PI * 2); srcCtx.fill();
+  } else if (shape === 'disk') {
+    const grad = srcCtx.createRadialGradient(40, 40, 0, 40, 40, 20);
+    grad.addColorStop(0, 'rgba(255,220,100,1)');
+    grad.addColorStop(0.5, 'rgba(255,160,60,0.6)');
+    grad.addColorStop(1, 'rgba(255,100,50,0)');
+    srcCtx.fillStyle = grad;
+    srcCtx.beginPath(); srcCtx.arc(40, 40, 20, 0, Math.PI * 2); srcCtx.fill();
+  } else if (shape === 'galaxy') {
+    srcCtx.save(); srcCtx.translate(40, 40);
+    // Core
+    const cg = srcCtx.createRadialGradient(0, 0, 0, 0, 0, 10);
+    cg.addColorStop(0, 'rgba(255,240,200,1)');
+    cg.addColorStop(1, 'rgba(255,180,100,0)');
+    srcCtx.fillStyle = cg; srcCtx.beginPath(); srcCtx.arc(0, 0, 10, 0, Math.PI*2); srcCtx.fill();
+    // Arms
+    for (let arm = 0; arm < 2; arm++) {
+      srcCtx.save(); srcCtx.rotate(arm * Math.PI);
+      for (let i = 0; i < 30; i++) {
+        const t = i / 30;
+        const r2 = t * 25, angle = t * Math.PI * 1.5;
+        const px = r2 * Math.cos(angle), py = r2 * Math.sin(angle) * 0.5;
+        const alpha = (1 - t) * 0.8;
+        srcCtx.fillStyle = `rgba(180,120,255,${alpha})`;
+        srcCtx.beginPath(); srcCtx.arc(px, py, 1.5, 0, Math.PI*2); srcCtx.fill();
+      }
+      srcCtx.restore();
+    }
+    srcCtx.restore();
+  }
+}
+drawSourceTexture('disk');
+
+// Point source lens equation: positions of images
+// For point mass lens: theta^2 - beta*theta - theta_E^2 = 0
+// Images at theta = (beta ± sqrt(beta^2 + 4*thetaE^2)) / 2
+function lensImages(bx, by, thetaE) {
+  const beta2 = bx * bx + by * by;
+  const beta = Math.sqrt(beta2);
+  if (beta < 0.01) return null; // ring case
+  const theta1 = (beta + Math.sqrt(beta2 + 4 * thetaE * thetaE)) / 2;
+  const theta2 = (beta - Math.sqrt(beta2 + 4 * thetaE * thetaE)) / 2;
+  // Both images along the beta direction
+  const nx = bx / beta, ny = by / beta;
+  return [
+    { x: nx * theta1, y: ny * theta1 },
+    { x: nx * theta2, y: ny * theta2 }
+  ];
+}
+
+// Magnification: mu = (u^2 + 2) / (u * sqrt(u^2 + 4))  where u = beta/thetaE
+function magnification(bx, by, thetaE) {
+  const u = Math.sqrt(bx * bx + by * by) / thetaE;
+  if (u < 0.01) return 9999;
+  return (u * u + 2) / (u * Math.sqrt(u * u + 4));
+}
+
+// Ray-traced lensing: for each pixel compute source position
+// Source plane position: beta = theta - thetaE^2 * theta / |theta|^2
+function lensedSourcePos(px, py, cx, cy, thetaE) {
+  const dx = px - cx, dy = py - cy;
+  const d2 = dx * dx + dy * dy;
+  if (d2 < 1) return null;
+  const factor = thetaE * thetaE / d2;
+  const betaX = dx - factor * dx;
+  const betaY = dy - factor * dy;
+  return { x: betaX, y: betaY };
+}
+
+const imgData = ctx.createImageData(W, H);
+const lensedImg = new OffscreenCanvas(W, H);
+const lensCtx = lensedImg.getContext('2d');
+
+function sampleSource(sx, sy) {
+  // sx, sy in source plane relative to src center
+  const srcR = srcShape === 'point' ? 8 : (srcShape === 'disk' ? 20 : 25);
+  const d = Math.sqrt(sx * sx + sy * sy);
+  if (d > srcR * 1.5) return [0, 0, 0, 0];
+  const tx = (sx / srcR * 0.5 + 0.5) * 79, ty = (sy / srcR * 0.5 + 0.5) * 79;
+  const ix = Math.floor(Math.max(0, Math.min(79, tx)));
+  const iy = Math.floor(Math.max(0, Math.min(79, ty)));
+  const srcImgData = srcCtx.getImageData(ix, iy, 1, 1).data;
+  return [srcImgData[0], srcImgData[1], srcImgData[2], srcImgData[3]];
+}
+
+function render() {
+  // Background
+  ctx.fillStyle = '#050510';
+  ctx.fillRect(0, 0, W, H);
+
+  // Stars
+  for (const s of stars) {
+    ctx.globalAlpha = 0.3 + s.b * 0.7;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // Ray-traced lensed image
+  const lensImgData = lensCtx.createImageData(W, H);
+  for (let py = 0; py < H; py += 1) {
+    for (let px = 0; px < W; px += 1) {
+      const bp = lensedSourcePos(px, py, CX, CY, einsteinR);
+      if (!bp) continue;
+      const relX = bp.x - srcX, relY = bp.y - srcY;
+      const col = sampleSource(relX, relY);
+      if (col[3] > 0) {
+        const idx = (py * W + px) * 4;
+        lensImgData.data[idx] = col[0];
+        lensImgData.data[idx+1] = col[1];
+        lensImgData.data[idx+2] = col[2];
+        lensImgData.data[idx+3] = col[3];
+      }
+    }
+  }
+  lensCtx.putImageData(lensImgData, 0, 0);
+  ctx.drawImage(lensedImg, 0, 0);
+
+  // Lens glow
+  const lensGrad = ctx.createRadialGradient(CX, CY, 0, CX, CY, 30);
+  lensGrad.addColorStop(0, 'rgba(255,255,255,1)');
+  lensGrad.addColorStop(0.2, 'rgba(200,160,255,0.8)');
+  lensGrad.addColorStop(0.5, 'rgba(80,40,120,0.4)');
+  lensGrad.addColorStop(1, 'rgba(20,10,40,0)');
+  ctx.fillStyle = lensGrad;
+  ctx.beginPath(); ctx.arc(CX, CY, 30, 0, Math.PI * 2); ctx.fill();
+  // Dark center (black hole)
+  ctx.fillStyle = '#000000';
+  ctx.beginPath(); ctx.arc(CX, CY, 10, 0, Math.PI * 2); ctx.fill();
+
+  // Einstein ring circle (critical curve)
+  if (showEinsteinCircle) {
+    ctx.strokeStyle = 'rgba(180,100,255,0.5)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath(); ctx.arc(CX, CY, einsteinR, 0, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Caustic: for point mass, caustic is a point at origin in source plane
+  // Caustic in image plane is the Einstein ring
+  // Draw caustic in source plane (shown as small circle at source position when near axis)
+  if (showCaustic) {
+    ctx.strokeStyle = 'rgba(255,200,50,0.6)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.arc(CX + srcX * 0.5, CY + srcY * 0.5, 4, 0, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Image positions (geometric optics)
+  const bx = srcX, by = srcY;
+  const beta = Math.sqrt(bx * bx + by * by);
+  const mu = magnification(bx, by, einsteinR);
+
+  if (beta < 2) {
+    // Einstein ring case
+    ctx.strokeStyle = 'rgba(255,255,100,0.8)';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(CX, CY, einsteinR, 0, Math.PI * 2); ctx.stroke();
+    document.getElementById('magnDisplay').textContent = 'μ: ∞ (アインシュタインリング)';
+    document.getElementById('imageCountDisplay').textContent = '像の数: 1 (リング)';
+  } else {
+    const imgs = lensImages(bx, by, einsteinR);
+    if (imgs) {
+      imgs.forEach((img, i) => {
+        ctx.fillStyle = i === 0 ? 'rgba(255,120,50,0.9)' : 'rgba(50,200,255,0.9)';
+        ctx.beginPath(); ctx.arc(CX + img.x, CY + img.y, 5, 0, Math.PI * 2); ctx.fill();
+        if (showLabels) {
+          ctx.fillStyle = i === 0 ? '#ffaa44' : '#44ccff';
+          ctx.font = 'bold 13px monospace';
+          ctx.fillText(i === 0 ? 'A' : 'B', CX + img.x + 7, CY + img.y - 5);
+        }
+      });
+      document.getElementById('imageCountDisplay').textContent = '像の数: 2';
+    }
+    document.getElementById('magnDisplay').textContent = `μ: ${mu.toFixed(2)}`;
+  }
+
+  // Source indicator (original position, faint)
+  ctx.globalAlpha = 0.4;
+  ctx.fillStyle = 'rgba(255,200,100,0.5)';
+  ctx.beginPath(); ctx.arc(CX + srcX, CY + srcY, 5, 0, Math.PI * 2); ctx.fill();
+  ctx.globalAlpha = 1;
+
+  document.getElementById('einsteinRDisplay').textContent = `θ_E: ${einsteinR} px`;
+}
+
+let animFrame = null;
+function loop() {
+  if (animating) {
+    animAngle += 0.01 * animSpeed;
+    srcX = Math.round(Math.cos(animAngle) * animRadius);
+    srcY = Math.round(Math.sin(animAngle) * animRadius * 0.3);
+    document.getElementById('srcX').value = srcX;
+    document.getElementById('srcY').value = srcY;
+    document.getElementById('srcXVal').textContent = srcX;
+    document.getElementById('srcYVal').textContent = srcY;
+    drawSourceTexture(srcShape);
+  }
+  render();
+  requestAnimationFrame(loop);
+}
+
+// Controls
+document.getElementById('einsteinR').addEventListener('input', e => {
+  einsteinR = parseInt(e.target.value);
+  document.getElementById('einsteinRVal').textContent = einsteinR;
+});
+document.getElementById('srcX').addEventListener('input', e => {
+  srcX = parseInt(e.target.value);
+  document.getElementById('srcXVal').textContent = srcX;
+  animating = false; document.getElementById('animBtn').textContent = '光源を自動移動';
+});
+document.getElementById('srcY').addEventListener('input', e => {
+  srcY = parseInt(e.target.value);
+  document.getElementById('srcYVal').textContent = srcY;
+  animating = false; document.getElementById('animBtn').textContent = '光源を自動移動';
+});
+document.getElementById('srcShape').addEventListener('change', e => {
+  srcShape = e.target.value;
+  drawSourceTexture(srcShape);
+});
+document.getElementById('animBtn').addEventListener('click', () => {
+  animating = !animating;
+  document.getElementById('animBtn').textContent = animating ? '停止' : '光源を自動移動';
+});
+document.getElementById('animSpeed').addEventListener('input', e => {
+  animSpeed = parseFloat(e.target.value);
+  document.getElementById('animSpeedVal').textContent = animSpeed.toFixed(1);
+});
+document.getElementById('showEinsteinCircle').addEventListener('change', e => { showEinsteinCircle = e.target.checked; });
+document.getElementById('showCaustic').addEventListener('change', e => { showCaustic = e.target.checked; });
+document.getElementById('showLabels').addEventListener('change', e => { showLabels = e.target.checked; });
+
+canvas.addEventListener('click', e => {
+  const rect = canvas.getBoundingClientRect();
+  srcX = Math.round(e.clientX - rect.left - CX);
+  srcY = Math.round(e.clientY - rect.top - CY);
+  document.getElementById('srcX').value = Math.max(-150, Math.min(150, srcX));
+  document.getElementById('srcY').value = Math.max(-150, Math.min(150, srcY));
+  document.getElementById('srcXVal').textContent = srcX;
+  document.getElementById('srcYVal').textContent = srcY;
+  animating = false; document.getElementById('animBtn').textContent = '光源を自動移動';
+});
+
+drawSourceTexture('disk');
+loop();
+</script>
+</body>
+</html>
